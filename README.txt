@@ -16,17 +16,24 @@ The DLL will then check to see if there is a file with a matching name in the "s
 Copy any files that you want to change from original to override and make changes there.  The orignal gets overwritten every run.
 
 == Fog Issue
-It seems that the fog is not enabled in certain areas of the game.  As any changes to the executable to glEnable(GL_FOG) could be overwritten by Steam, adding to the shaders to handle fog seems to be the safest route.  This should be able to be copied/pasted into most fragment shaders (fp_______.txt) right before the "MOV result.color, r0" statement:
+It seems that the fog is not processed in certain areas of the game.  There is information pointing to the idea that fog will not be handled if a vertex shader is used, requiring manual handling of the fog efect.  This should be able to be copied/pasted into most fragment shaders (fp_______.txt) right before the last "MOV result.color, r0" statement:
 
 # == manual interpolation for fog ==
-TEMP blendFog;
-MAD_SAT blendFog.x, fragment.fogcoord.x, state.fog.params.w, state.fog.params.y;
-CMP blendFog.x, -state.fog.color.r, blendFog.x, 0;
-LRP r0.rgb, blendFog.x, state.fog.color, r0;
+PARAM p = program.env[8];
+TEMP fogFactor;
+MUL fogFactor.x, p.x, fragment.fogcoord.x;
+EX2_SAT fogFactor.x, -fogFactor.x;
+MUL fogFactor.y, p.y, fragment.fogcoord.x;
+MUL fogFactor.y, fogFactor.y, fogFactor.y;
+EX2_SAT fogFactor.y, -fogFactor.y;
+MAD_SAT fogFactor.z, p.z, fragment.fogcoord.x, p.w;
+MUL fogFactor.x, fogFactor.y, fogFactor.x;
+MUL fogFactor.x, fogFactor.z, fogFactor.x;
+LRP r0.rgb, fogFactor.x, r0, state.fog.color;
 
 (This code adapted from opengl ARB_vertex_program fog reference implementation.)
 
-I make the assumption that all fog in the game has a non-zero red component to ease handling of fog visibility (like inside the ship, where there is no fog setup - things turn black without that "CMP" line).
+Fog is tracked manually by hooking a number of glFog* functions with required values placed into environment variable 8 (which is believed to be unused).  While there are the ARB_fog_* options, I am unaware of how to both specify which one to use or turn it off when you don't need fog from within the shader.
 
 == Source Code
 Compilation makes use of the 7-Zip program by Igor Pavlov to add a binary resource to the DLL of the source in a 7z archive.  Due to the way 7-Zip handles executables/DLLs, this DLL can simply be opened by the 7-Zip program as if it was an archive to obtain the source code.

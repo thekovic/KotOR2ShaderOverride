@@ -22,16 +22,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#define LIBRARY_DEF
+#include "glfunctions.h"
 
 #include <Windows.h>
-#include <string>
-#include "glfunctions.h"
+#include <sstream>
 #include "md5.h"
 /*  derived from the RSA Data
 Security, Inc. MD5 Message-Digest Algorithm */
-#include <gl/glew.h>
 
-PFNGLPROGRAMSTRING			orig_glProgramString = NULL;
+#define PROGRAM_ENV_FOG_INDEX	8
+#define PROGRAM_ENV_FOG_ANIM_INDEX 9
 
 class Win32File
 {
@@ -65,15 +66,15 @@ public:
 	}
 };
 
-void __stdcall my_glProgramString( unsigned target, unsigned format, unsigned len, const void *pointer )
+void __stdcall my_glProgramString( GLenum target, GLenum format, GLsizei len, const void *string )
 {
-	std::string hash = md5( std::string( (char*)pointer, &((char*)pointer)[len] ) );
+	std::string hash = md5( std::string( (char*)string, &((char*)string)[len] ) );
 
 	hash.insert( 0, target == GL_FRAGMENT_PROGRAM_ARB ? "fp" : ( target == GL_VERTEX_PROGRAM_ARB ? "vp" : "un" ) );
 
 	CreateDirectory( "shaders_original", 0 );
 	Win32File originalFile( "shaders_original/" + hash + ".txt", GENERIC_WRITE, CREATE_ALWAYS );
-	originalFile.write( (const char *)pointer, len );
+	originalFile.write( (const char *)string, len );
 
 	CreateDirectory( "shaders_override", 0 );
 
@@ -83,5 +84,68 @@ void __stdcall my_glProgramString( unsigned target, unsigned format, unsigned le
 	if( overrideFile.readAll( contents ) )
 		return orig_glProgramString( target, format, contents.length(), contents.c_str() );
 
-	return orig_glProgramString( target, format, len, pointer );
+	return orig_glProgramString( target, format, len, string );
+}
+
+void __stdcall my_glBindProgram( GLenum target, GLuint program )
+{
+	orig_glBindProgram( target, program );
+
+	if( bFogOn )
+		orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX,
+			fogBehavior[0], fogBehavior[1], fogBehavior[2], fogBehavior[3] );
+	else
+		orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX, 0.0, 0.0, 0.0, 1.0 );
+}
+
+void fogRecalculate()
+{	
+	// {DENSITY/LN(2), DENSITY/SQRT(LN(2)), -1/(END-START), END/(END-START)}
+
+	double endStart = fogEnd - fogStart;
+
+	switch( fogMode )
+	{
+	case GL_LINEAR:
+		fogBehavior[0] = 0;
+		fogBehavior[1] = 0;
+		if( endStart != 0 )
+		{
+			fogBehavior[2] = -1 / endStart;
+			fogBehavior[3] = fogEnd / endStart;
+		}
+		else
+		{
+			fogBehavior[2] = 0;
+			fogBehavior[3] = 1;
+		}
+		break;
+	case GL_EXP:
+		fogBehavior[0] = fogDensity / 0.693147180559945;
+		fogBehavior[1] = 0;
+		fogBehavior[2] = 0;
+		fogBehavior[3] = 1;
+		break;
+	case GL_EXP2:
+		fogBehavior[0] = 0;
+		fogBehavior[1] = fogDensity / 0.832554611157697;
+		fogBehavior[2] = 0;
+		fogBehavior[3] = 1;
+		break;
+	};
+
+	/*
+	PARAM p = program.env[8];
+	TEMP fogFactor;
+	MUL fogFactor.x, p.x, fragment.fogcoord.x;
+	EX2_SAT fogFactor.x, -fogFactor.x;
+	MUL fogFactor.y, p.y, fragment.fogcoord.x;
+	MUL fogFactor.y, fogFactor.y, fogFactor.y;
+	EX2_SAT fogFactor.y, -fogFactor.y;
+	MAD_SAT fogFactor.z, p.z, fragment.fogcoord.x, p.w;
+	MUL fogFactor.x, fogFactor.y, fogFactor.x;
+	MUL fogFactor.x, fogFactor.z, fogFactor.x;
+	LRP r0.rgb, fogFactor.x, r0, state.fog.color;
+	MOV result.color, r0;
+	*/
 }

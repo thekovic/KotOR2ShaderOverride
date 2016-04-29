@@ -23,18 +23,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <windows.h>
 #include "glfunctions.h"
+#include <windows.h>
 #pragma pack(1)
 
-typedef int(__stdcall *pS)(char* name);
 FARPROC p[368] = { 0 };
 void InitGL();
 
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID)
 {
 	if (reason == DLL_PROCESS_ATTACH)
+	{
+		fogStart = 0;
+		fogEnd = 1;
+		fogDensity = 1;
+		fogMode = GL_EXP;
+		bFogOn = false;
 		InitGL();
+	}
 
 	return TRUE;
 }
@@ -150,9 +156,13 @@ void InitGL()
 	p[96] = GetProcAddress(hL, "glFinish");
 	p[97] = GetProcAddress(hL, "glFlush");
 	p[98] = GetProcAddress(hL, "glFogf");
+	orig_glFogf = (PFNGLFOGFPROC)p[98];
 	p[99] = GetProcAddress(hL, "glFogfv");
+	orig_glFogfv = (PFNGLFOGFVPROC)p[99];
 	p[100] = GetProcAddress(hL, "glFogi");
+	orig_glFogi = (PFNGLFOGIPROC)p[100];
 	p[101] = GetProcAddress(hL, "glFogiv");
+	orig_glFogiv = (PFNGLFOGIVPROC)p[101];
 	p[102] = GetProcAddress(hL, "glFrontFace");
 	p[103] = GetProcAddress(hL, "glFrustum");
 	p[104] = GetProcAddress(hL, "glGenLists");
@@ -407,6 +417,7 @@ void InitGL()
 	p[353] = GetProcAddress(hL, "wglGetLayerPaletteEntries");
 	p[354] = GetProcAddress(hL, "wglGetPixelFormat");
 	p[355] = GetProcAddress(hL, "wglGetProcAddress");
+	orig_wglGetProcAddress = (PFNWGLGETPROCADDRESS)p[355];
 	p[356] = GetProcAddress(hL, "wglMakeCurrent");
 	p[357] = GetProcAddress(hL, "wglRealizeLayerPalette");
 	p[358] = GetProcAddress(hL, "wglSetLayerPaletteEntries");
@@ -1053,12 +1064,22 @@ extern "C" __declspec(naked) void __stdcall __E__69__()
 }
 
 // glDisable
-extern "C" __declspec(naked) void __stdcall __E__70__()
+/*extern "C" __declspec(naked) void __stdcall __E__70__()
 {
 	__asm
 	{
 		jmp p[70 * 4];
 	}
+}*/
+
+
+typedef void (__stdcall *PFNGLDISABLE)( GLenum );
+extern "C" void __stdcall __E__70__( GLenum cap )
+{
+	if( cap == GL_FOG )
+		bFogOn = false;
+	
+	((PFNGLDISABLE)p[70])( cap );
 }
 
 // glDisableClientState
@@ -1134,12 +1155,21 @@ extern "C" __declspec(naked) void __stdcall __E__78__()
 }
 
 // glEnable
-extern "C" __declspec(naked) void __stdcall __E__79__()
+/*extern "C" __declspec(naked) void __stdcall __E__79__()
 {
 	__asm
 	{
 		jmp p[79 * 4];
 	}
+}*/
+
+typedef void (__stdcall *PFNGLENABLE)( GLenum );
+extern "C" void __stdcall __stdcall __E__79__( GLenum cap )
+{
+	if( cap == GL_FOG )
+		bFogOn = true;
+	
+	((PFNGLENABLE)p[79])( cap );
 }
 
 // glEnableClientState
@@ -1305,39 +1335,139 @@ extern "C" __declspec(naked) void __stdcall __E__97__()
 }
 
 // glFogf
-extern "C" __declspec(naked) void __stdcall __E__98__()
+/*extern "C" __declspec(naked) void __stdcall __E__98__()
 {
 	__asm
 	{
 		jmp p[98 * 4];
 	}
+}*/
+
+extern "C" void __stdcall __E__98__( GLenum pname,  GLfloat param )
+{
+	switch( pname )
+	{
+	case GL_FOG_MODE:
+		fogMode = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_DENSITY:
+		fogDensity = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_START:
+		fogStart = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_END:
+		fogEnd = param;
+		fogRecalculate();
+		break;
+	};
+
+	orig_glFogf( pname, param );
 }
 
 // glFogfv
-extern "C" __declspec(naked) void __stdcall __E__99__()
+/*extern "C" __declspec(naked) void __stdcall __E__99__()
 {
 	__asm
 	{
 		jmp p[99 * 4];
 	}
+}*/
+
+extern "C" void __stdcall __E__99__( GLenum pname,  GLfloat *param )
+{
+	switch( pname )
+	{
+	case GL_FOG_MODE:
+		fogMode = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_DENSITY:
+		fogDensity = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_START:
+		fogStart = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_END:
+		fogEnd = *param;
+		fogRecalculate();
+		break;
+	};
+
+	orig_glFogfv( pname, param );
 }
 
 // glFogi
-extern "C" __declspec(naked) void __stdcall __E__100__()
+/*extern "C" __declspec(naked) void __stdcall __E__100__()
 {
 	__asm
 	{
 		jmp p[100 * 4];
 	}
+}*/
+
+extern "C" void __stdcall __E__100__( GLenum pname,  GLint param )
+{
+	switch( pname )
+	{
+	case GL_FOG_MODE:
+		fogMode = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_DENSITY:
+		fogDensity = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_START:
+		fogStart = param;
+		fogRecalculate();
+		break;
+	case GL_FOG_END:
+		fogEnd = param;
+		fogRecalculate();
+		break;
+	};
+
+	orig_glFogi( pname, param );
 }
 
 // glFogiv
-extern "C" __declspec(naked) void __stdcall __E__101__()
+/*extern "C" __declspec(naked) void __stdcall __E__101__()
 {
 	__asm
 	{
 		jmp p[101 * 4];
 	}
+}*/
+
+extern "C" void __stdcall __E__101__( GLenum pname,  GLint *param )
+{
+	switch( pname )
+	{
+	case GL_FOG_MODE:
+		fogMode = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_DENSITY:
+		fogDensity = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_START:
+		fogStart = *param;
+		fogRecalculate();
+		break;
+	case GL_FOG_END:
+		fogEnd = *param;
+		fogRecalculate();
+		break;
+	};
+
+	orig_glFogiv( pname, param );
 }
 
 // glFrontFace
@@ -3639,21 +3769,25 @@ extern "C" __declspec(naked) void __stdcall __E__354__()
 	}
 	}*/
 
-extern "C" int __stdcall __E__355__(char* name)
+extern "C" PROC WINAPI __E__355__( LPCSTR name )
 {
-	pS pps = (pS)p[355];
-	int rv = pps(name);
-
 	if( (strcmp(name, "glProgramString") == 0) ||
-		(strcmp(name, "glProgramStringARB") == 0) ||
+		(strcmp(name, "glProgramStringARB") == 0) /*||
 		(strcmp(name, "glProgramStringATI") == 0) ||
-		(strcmp(name, "glProgramStringNV") == 0) )
+		(strcmp(name, "glProgramStringNV") == 0)*/ )
 	{
-		orig_glProgramString = (PFNGLPROGRAMSTRING)rv;
-		return (int)my_glProgramString;
+		orig_glProgramString = (PFNGLPROGRAMSTRINGARBPROC)orig_wglGetProcAddress( name );
+		return (PROC)my_glProgramString;
+	}
+	else if( (strcmp(name, "glBindProgram") == 0) ||
+		(strcmp(name, "glBindProgramARB") == 0) )
+	{
+		orig_glProgramEnvParameter4d = (PFNGLPROGRAMENVPARAMETER4DARBPROC)orig_wglGetProcAddress( "glProgramEnvParameter4dARB" );
+		orig_glBindProgram = (PFNGLBINDPROGRAMARBPROC)orig_wglGetProcAddress( name );
+		return (PROC)my_glBindProgram;
 	}
 
-	return rv;
+	return orig_wglGetProcAddress( name );
 }
 
 
