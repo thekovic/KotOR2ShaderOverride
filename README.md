@@ -9,7 +9,7 @@ See LICENSE_*.txt for licenses.
 This DLL was produced specifically for Star Wars: Knights of the Old Republic II: The Sith Lords to fix issues in 2016 with the fog.
 
 #### Usage
-When glProgramSource is called from within a program that uses it, the DLL will produce two directories: "shaders_original" and "shaders_override".  It will then proceed to dump the shaders to the "shaders_original" directory with filenames in the form of <vp/fp><md5_shader_hash>.txt.
+When glProgramSource is called from within a program that uses it, the DLL will produce two directories: "shaders_original" and "shaders_override".  It will then proceed to dump the shaders to the "shaders_original" directory with filenames in the form of (vp/fp)(md5_shader_hash).txt.
 
 As of version "speedblur" there is a "shader_ident.txt" file that is referenced to convert the md5 hash names into more friendly, readable names.  If you figure out what a shader does, feel free to add it this file.
 
