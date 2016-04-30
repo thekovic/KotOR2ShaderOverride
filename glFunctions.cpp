@@ -22,17 +22,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+#include "platform.h"
+
 #define LIBRARY_DEF
 #include "glfunctions.h"
 
-#include <Windows.h>
-#include <sstream>
+#include <fstream>
+#include <map>
+#include <string>
 #include "md5.h"
 /*  derived from the RSA Data
 Security, Inc. MD5 Message-Digest Algorithm */
 
 #define PROGRAM_ENV_FOG_INDEX	8
 #define PROGRAM_ENV_FOG_ANIM_INDEX 9
+#define PROGRAM_ENV_VIEWPORT_SIZE 10
 
 class Win32File
 {
@@ -66,11 +71,31 @@ public:
 	}
 };
 
+typedef std::map< std::string, std::string > type_names;
+type_names names;
+
+void InitShaderLookup()
+{
+	std::ifstream file( "shader_ident.txt", 0 );
+
+	while( file.good() )
+	{
+		std::string line;
+		std::getline( file, line );
+		std::string::size_type pos = line.find( '=' );
+
+		if( pos != std::string::npos )
+			names[ line.substr( 0, pos ) ] = line.substr( pos + 1 );
+	}
+}
+
 void __stdcall my_glProgramString( GLenum target, GLenum format, GLsizei len, const void *string )
 {
 	std::string hash = md5( std::string( (char*)string, &((char*)string)[len] ) );
-
 	hash.insert( 0, target == GL_FRAGMENT_PROGRAM_ARB ? "fp" : ( target == GL_VERTEX_PROGRAM_ARB ? "vp" : "un" ) );
+
+	if( names[ hash ].length() > 0 )
+		hash = names[ hash ];
 
 	CreateDirectory( "shaders_original", 0 );
 	Win32File originalFile( "shaders_original/" + hash + ".txt", GENERIC_WRITE, CREATE_ALWAYS );
@@ -91,11 +116,19 @@ void __stdcall my_glBindProgram( GLenum target, GLuint program )
 {
 	orig_glBindProgram( target, program );
 
-	if( bFogOn )
-		orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX,
-			fogBehavior[0], fogBehavior[1], fogBehavior[2], fogBehavior[3] );
-	else
-		orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX, 0.0, 0.0, 0.0, 1.0 );
+	if( target == GL_FRAGMENT_PROGRAM_ARB )
+	{
+		if( bFogOn )
+			orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX,
+				fogBehavior[0], fogBehavior[1], fogBehavior[2], fogBehavior[3] );
+		else
+			orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_FOG_INDEX, 0.0, 0.0, 0.0, 1.0 );
+
+		GLint viewport[4];
+		orig_glGetIntegerv( GL_VIEWPORT, viewport );
+		orig_glProgramEnvParameter4d( GL_FRAGMENT_PROGRAM_ARB, PROGRAM_ENV_VIEWPORT_SIZE,
+			viewport[2], viewport[3], 1.0 / ((double)viewport[2]), 1.0 / ((double)viewport[3]) );
+	}
 }
 
 void fogRecalculate()

@@ -22,8 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <gl/glew.h>
-#include <Windows.h>
+#include "platform.h"
 
 #ifndef LIBRARY_DEF
 #define LIBRARY_DEF extern
@@ -33,6 +32,7 @@ LIBRARY_DEF bool bFogOn;
 LIBRARY_DEF GLdouble fogStart, fogEnd, fogDensity;
 LIBRARY_DEF GLuint fogMode;
 LIBRARY_DEF double fogBehavior[4];		// {DENSITY/LN(2), DENSITY/SQRT(LN(2)), -1/(END-START), END/(END-START)}
+LIBRARY_DEF void InitShaderLookup();
 
 typedef void (WINAPI *PFNGLFOGFPROC)(GLenum pname,  GLfloat param);
 LIBRARY_DEF PFNGLFOGFPROC orig_glFogf;
@@ -46,15 +46,18 @@ LIBRARY_DEF PFNGLFOGFVPROC orig_glFogfv;
 typedef void (WINAPI *PFNGLFOGIVPROC)(GLenum pname,  GLint *param);
 LIBRARY_DEF PFNGLFOGIVPROC orig_glFogiv;
 
-typedef PROC (WINAPI *PFNWGLGETPROCADDRESS)(LPCSTR);
+typedef void (WINAPI *PFNGLGETINTEGERV)(GLenum pname,  GLint *param);
+LIBRARY_DEF PFNGLGETINTEGERV orig_glGetIntegerv;
+
+typedef PROC (WINAPI *PFNWGLGETPROCADDRESS)( const char * );
 LIBRARY_DEF PFNWGLGETPROCADDRESS orig_wglGetProcAddress;
 
 LIBRARY_DEF PFNGLPROGRAMENVPARAMETER4DARBPROC orig_glProgramEnvParameter4d;
 
 LIBRARY_DEF PFNGLPROGRAMSTRINGARBPROC orig_glProgramString;
-void __stdcall my_glProgramString( GLenum target, GLenum format, GLsizei len, const void *string );
+void WINAPI my_glProgramString( GLenum target, GLenum format, GLsizei len, const void *string );
 
 LIBRARY_DEF PFNGLBINDPROGRAMARBPROC orig_glBindProgram;
-void __stdcall my_glBindProgram(  GLenum target, GLuint program );
+void WINAPI my_glBindProgram(  GLenum target, GLuint program );
 
 void fogRecalculate();

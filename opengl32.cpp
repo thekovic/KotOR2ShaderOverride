@@ -40,6 +40,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID)
 		fogMode = GL_EXP;
 		bFogOn = false;
 		InitGL();
+		InitShaderLookup();
 	}
 
 	return TRUE;
@@ -173,6 +174,7 @@ void InitGL()
 	p[109] = GetProcAddress(hL, "glGetError");
 	p[110] = GetProcAddress(hL, "glGetFloatv");
 	p[111] = GetProcAddress(hL, "glGetIntegerv");
+	orig_glGetIntegerv = (PFNGLGETINTEGERV)p[111];
 	p[112] = GetProcAddress(hL, "glGetLightfv");
 	p[113] = GetProcAddress(hL, "glGetLightiv");
 	p[114] = GetProcAddress(hL, "glGetMapdv");
@@ -3769,7 +3771,7 @@ extern "C" __declspec(naked) void __stdcall __E__354__()
 	}
 	}*/
 
-extern "C" PROC WINAPI __E__355__( LPCSTR name )
+extern "C" PROC WINAPI __E__355__( const char *name )
 {
 	if( (strcmp(name, "glProgramString") == 0) ||
 		(strcmp(name, "glProgramStringARB") == 0) /*||
