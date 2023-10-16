@@ -1,0 +1,34 @@
+!!ARBfp1.0
+ATTRIB T0 = fragment.texcoord[0];
+ATTRIB T1 = fragment.texcoord[1];
+ATTRIB T2 = fragment.texcoord[2];
+ATTRIB T3 = fragment.texcoord[3];
+TEMP r0, r1, r2, r3, r4;
+PARAM c[4] = { program.env[0..3] };
+TEX r0, T0, texture[0], 2D;
+TEX r1, T1, texture[1], 2D;
+TEX r2, T2, texture[2], 2D;
+TEX r3, T3, texture[3], 2D;
+MUL r4.xyz, r0, c[0];
+MUL r4.w, r0, c[0];
+MAD r4.xyz, r1, c[1], r4;
+MAD r4.w, r1, c[1], r4;
+MAD r1.xyz, r2, c[2], r4;
+MAD r1.w, r2, c[2], r4;
+MAD r0.xyz, r3, c[3], r1;
+MAD r0.w, r3, c[3], r1;
+
+PARAM p = program.env[8];
+TEMP fogFactor;
+MUL fogFactor.x, p.x, fragment.fogcoord.x;
+EX2_SAT fogFactor.x, -fogFactor.x;
+MUL fogFactor.y, p.y, fragment.fogcoord.x;
+MUL fogFactor.y, fogFactor.y, fogFactor.y;
+EX2_SAT fogFactor.y, -fogFactor.y;
+MAD_SAT fogFactor.z, p.z, fragment.fogcoord.x, p.w;
+MUL fogFactor.x, fogFactor.y, fogFactor.x;
+MUL fogFactor.x, fogFactor.z, fogFactor.x;
+LRP r0.rgb, fogFactor.x, r0, state.fog.color;
+MOV result.color, r0;
+
+END
